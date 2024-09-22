@@ -389,6 +389,58 @@ def load_lora(lora_params, ckpt_name, id, cache=None, ckpt_cache=None, cache_ove
 
     return lora_model, lora_clip
 
+def load_lora_flux(lora_params, model, id, cache=None, cache_overwrite=False):
+    global loaded_objects
+
+    # Ensure lora_params is a single tuple, not a list of tuples
+    if isinstance(lora_params, list):
+        lora_params_entry = lora_params[0]
+
+    lora_name, strength_model, strength_clip = lora_params_entry
+
+    # Use a unique identifier for flux LoRAs
+    flux_identifier = f"flux_{lora_name}"
+
+    # Check if this LoRA is already loaded and cached
+    for entry in loaded_objects["lora"]:
+        if entry[0] == lora_params_entry and entry[1] == flux_identifier:
+            _, _, lora_model, lora_clip, ids = entry
+            cache_full = cache and len([entry for entry in loaded_objects["lora"] if id in entry[-1]]) >= cache
+
+            if cache_full:
+                clear_cache(id, cache, "lora")
+            elif id not in ids:
+                ids.append(id)
+
+            return lora_model, lora_clip
+
+    # Load the LoRA
+    if os.path.isabs(lora_name):
+        lora_path = lora_name
+    else:
+        lora_path = folder_paths.get_full_path("loras", lora_name)
+
+    lora_model, lora_clip = comfy.sd.load_lora_for_models(model, None, comfy.utils.load_torch_file(lora_path), strength_model, strength_clip)
+
+    # Handle caching
+    if cache:
+        if len([entry for entry in loaded_objects["lora"] if id in entry[-1]]) < cache:
+            loaded_objects["lora"].append((lora_params_entry, flux_identifier, lora_model, lora_clip, [id]))
+        else:
+            clear_cache(id, cache, "lora")
+            if cache_overwrite:
+                # Find the first entry with the id, remove the id from the entry's id list
+                for e in loaded_objects["lora"]:
+                    if id in e[-1]:
+                        e[-1].remove(id)
+                        # If the id list becomes empty, remove the entry from the "lora" list
+                        if not e[-1]:
+                            loaded_objects["lora"].remove(e)
+                        break
+                loaded_objects["lora"].append((lora_params_entry, flux_identifier, lora_model, lora_clip, [id]))
+
+    return lora_model, lora_clip
+
 def clear_cache(id, cache, dict_name):
     """
     Clear the cache for a specific id in a specific dictionary.

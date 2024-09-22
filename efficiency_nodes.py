@@ -65,6 +65,8 @@ REFINER_CFG_OFFSET = 0 #Refiner CFG Offset
 SCHEDULER_NAMES = samplers.SCHEDULER_NAMES + ["AYS SD1", "AYS SDXL", "AYS SVD"]
 SCHEDULERS = samplers.KSampler.SCHEDULERS + ["AYS SD1", "AYS SDXL", "AYS SVD"]
 
+from custom import TSC_KSampler_Custom
+
 ########################################################################################################################
 # Common function for encoding prompts
 def encode_prompts(positive_prompt, negative_prompt, token_normalization, weight_interpretation, clip, clip_skip,
@@ -2371,7 +2373,7 @@ class TSC_XYplot:
         # Check that dependencies are connected for specific plot types
         encode_types = {
             "Checkpoint", "Refiner",
-            "LoRA", "LoRA Batch", "LoRA Wt", "LoRA MStr", "LoRA CStr",
+            "LoRA Batch", "LoRA Wt", "LoRA MStr", "LoRA CStr",
             "Positive Prompt S/R", "Negative Prompt S/R",
             "AScore+", "AScore-",
             "Clip Skip", "Clip Skip (Refiner)",
@@ -4227,6 +4229,7 @@ class TSC_LoRA_Stack2String:
 # NODE MAPPING
 NODE_CLASS_MAPPINGS = {
     "KSampler (Efficient)": TSC_KSampler,
+    "KSampler Custom (Efficient)": TSC_KSampler_Custom,
     "KSampler Adv. (Efficient)":TSC_KSamplerAdvanced,
     "KSampler SDXL (Eff.)": TSC_KSamplerSDXL,
     "Efficient Loader": TSC_EfficientLoader,

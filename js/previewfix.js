@@ -20,6 +20,7 @@ app.registerExtension({
         
         const validTitles = [
             "KSampler (Efficient)",
+            "KSampler Custom (Efficient)",
             "KSampler Adv. (Efficient)",
             "KSampler SDXL (Eff.)"
         ];

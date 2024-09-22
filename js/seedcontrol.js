@@ -8,6 +8,7 @@ const SEED_BEHAVIOR_DECREMENT = 'Decrement';
 
 const NODE_WIDGET_MAP = {
     "KSampler (Efficient)": "seed",
+    "KSampler Custom (Efficient)": "seed", // For our custom KSampler
     "KSampler Adv. (Efficient)": "noise_seed",
     "KSampler SDXL (Eff.)": "noise_seed",
     "Noise Control Script": "seed",
@@ -16,6 +17,8 @@ const NODE_WIDGET_MAP = {
 };
 
 const SPECIFIC_WIDTH = 325; // Set to desired width
+
+const CONVERTED_TYPE = 'converted_input';
 
 function setNodeWidthForMappedTitles(node) {
      if (NODE_WIDGET_MAP[node.comfyClass]) {
@@ -66,6 +69,9 @@ class SeedControl {
                 this.updateButtonLabel(); // Update the button label to reflect the change
             }
         }, { width: 50, serialize: false });
+
+        // Link the lastSeedButton to the seedWidget
+        this.seedWidget.linkedWidgets = [this.lastSeedButton];
 
         setNodeWidthForMappedTitles(node);
         if (controlAfterGenerateIndex !== undefined) {
@@ -145,6 +151,8 @@ class SeedControl {
             this.updateButtonLabel();
             this.serializedCtx = {};
         };
+
+        this.updateButtonVisibility();
     }
 
     setBehavior(behavior) {
@@ -174,6 +182,69 @@ class SeedControl {
         }
     }
 
+    isInputSeed() {
+        return this.seedWidget.type === CONVERTED_TYPE;
+    }
+
+    updateButtonVisibility() {
+        if (this.isInputSeed()) {
+            this.hideWidget(this.seedWidget);
+        } else {
+            this.showWidget(this.seedWidget);
+        }
+    }
+
+    hideWidget(widget, suffix = '') {
+        if (!widget.origType) {
+            widget.origType = widget.type;
+            widget.origComputeSize = widget.computeSize;
+            widget.origSerializeValue = widget.serializeValue;
+        }
+        widget.hidden = true;
+        widget.computeSize = () => [0, -4]; // -4 is due to the gap litegraph adds between widgets automatically
+        widget.type = CONVERTED_TYPE + suffix;
+        widget.serializeValue = () => {
+            // Prevent serializing the widget if we have no input linked
+            const { link } = this.node.inputs.find((i) => i.widget?.name === widget.name);
+            if (link == null) {
+                return undefined;
+            }
+            return widget.origSerializeValue
+                ? widget.origSerializeValue()
+                : widget.value;
+        };
+
+        // Hide any linked widgets, e.g. seed+seedControl
+        if (widget.linkedWidgets) {
+            for (const w of widget.linkedWidgets) {
+                this.hideWidget(w, `:${widget.name}`);
+            }
+        }
+
+        this.node.setDirtyCanvas(true);
+    }
+
+    showWidget(widget) {
+        if (widget.origType) {
+            widget.type = widget.origType;
+            widget.computeSize = widget.origComputeSize;
+            widget.serializeValue = widget.origSerializeValue;
+            widget.hidden = false;
+
+            delete widget.origType;
+            delete widget.origComputeSize;
+            delete widget.origSerializeValue;
+        }
+
+        // Show any linked widgets, e.g. seed+seedControl
+        if (widget.linkedWidgets) {
+            for (const w of widget.linkedWidgets) {
+                this.showWidget(w);
+            }
+        }
+
+        this.node.setDirtyCanvas(true);
+    }
 }
 
 function showSeedBehaviorMenu(value, options, e, menu, node) {
@@ -249,3 +320,20 @@ app.registerExtension({
         }
     },
 });
+
+app.registerExtension({
+    name: "efficiency.seedcontrolupdate",
+    nodeCreated(node) {
+        if (NODE_WIDGET_MAP[node.comfyClass]) {
+            const seedName = NODE_WIDGET_MAP[node.comfyClass];
+            const seedWidget = node.widgets.find(w => w.name === seedName);
+            if (seedWidget && node.seedControl) {
+                seedWidget.onTypeChanged = () => {
+                    node.seedControl.updateButtonVisibility();
+                    node.setDirtyCanvas(true);
+                };
+            }
+        }
+    }
+});
+

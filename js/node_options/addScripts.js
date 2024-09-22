@@ -4,6 +4,7 @@ import { addNode } from "./common/utils.js";
 
 const connectionMap = {
     "KSampler (Efficient)": ["input", 5],
+    "KSampler Custom (Efficient)": ["input", 5],
     "KSampler Adv. (Efficient)": ["input", 5],
     "KSampler SDXL (Eff.)": ["input", 3],
     "XY Plot": ["output", 0],
